@@ -3,4 +3,10 @@ services:
     build: .
     ports:
       - "8000:8000"
+    environment:
+      AEGISMIND_DB_PATH: /app/data/aegismind.db
+    volumes:
+      - aegismind-data:/app/data
     restart: unless-stopped
+volumes:
+  aegismind-data:

@@ -8,4 +8,7 @@ class Settings(BaseModel):
     llm_provider:str=os.getenv("LLM_PROVIDER","local")
     llm_api_key:str=os.getenv("LLM_API_KEY","")
     llm_model:str=os.getenv("LLM_MODEL","")
+    db_path:str=os.getenv("AEGISMIND_DB_PATH","data/aegismind.db")
+    chunk_size:int=int(os.getenv("CHUNK_SIZE","900"))
+    chunk_overlap:int=int(os.getenv("CHUNK_OVERLAP","120"))
 settings=Settings()

@@ -23,7 +23,7 @@ def root(): return FileResponse("static/index.html")
 
 @app.get("/health")
 def health():
-    return {"status":"ok","service":settings.app_name,"sources":len(store.all()),"retrieval_ready":retriever.m is not None}
+    return {"status":"ok","service":settings.app_name,"sources":len(store.all()),"retrieval_ready":retriever.ready}
 
 @app.post("/api/ingest/text")
 def ingest(req:IngestTextRequest):

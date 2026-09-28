@@ -3,7 +3,7 @@ from PIL import Image
 from fastapi.testclient import TestClient
 from app.main import app
 from app.chunking import chunk_text,chunk_document_pages
-from app.document_intelligence import detect_language,image_document
+from app.document_intelligence import script_signal
 from app.schemas import Source
 
 c=TestClient(app)
@@ -26,13 +26,13 @@ def test_chunking():
 
 def test_page_aware_chunking():
     source=Source(id="doc-1",title="Report",content="",metadata={"type":"pdf"})
-    chunks=chunk_document_pages(source,[{"page":2,"text":"Revenue increased. Risk remains.","language":"en","extracted_by":"text","table_count":1}])
+    chunks=chunk_document_pages(source,[{"page":2,"text":"Revenue increased. Risk remains.","script":"latin","extracted_by":"text","table_count":1}])
     assert chunks and chunks[0].metadata["page"]==2 and chunks[0].metadata["table_count"]==1
 
-def test_language_detection():
-    assert detect_language("This is English.")=="en"
-    assert detect_language("यो नेपाली पाठ हो।")=="ne"
-    assert detect_language("Nepali नेपाली")=="ne+en"
+def test_script_signal():
+    assert script_signal("This is English.")=="latin"
+    assert script_signal("यो नेपाली पाठ हो।")=="devanagari"
+    assert script_signal("Nepali नेपाली")=="devanagari+latin"
 
 def test_image_document():
     image=Image.new("RGB",(32,32),(200,200,200))
@@ -42,6 +42,7 @@ def test_image_document():
     assert response.status_code==200
     assert response.json()["analysis"]["sha256"]
     assert response.json()["analysis"]["ocr"]["enabled"] is True
+    assert "available" in response.json()["analysis"]["ocr"]
 
 def test_audit():
     data=c.get("/api/audit?limit=10").json()

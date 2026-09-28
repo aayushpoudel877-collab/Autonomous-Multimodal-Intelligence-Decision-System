@@ -10,13 +10,28 @@
 - [x] agent workflow
 - [x] tests and CI
 
+## Phase 3 — Semantic Intelligence
+- [x] hybrid lexical + semantic ranking
+- [x] evidence provenance
+- [x] deterministic local embedding fallback
+- [x] retrieval score decomposition
+
+## Phase 4 — Multimodal Document Intelligence
+- [x] page-aware PDF parsing
+- [x] scanned-page OCR adapter
+- [x] image OCR adapter
+- [x] PDF table extraction adapter
+- [x] English/Nepali/mixed-script detection
+- [x] page-level provenance metadata
+- [ ] document layout/schema extraction
+- [ ] vision-language model integration
+- [ ] multimodal evidence fusion
+
 ## Scale
 - [ ] PostgreSQL + pgvector
 - [ ] Redis task queue
 - [ ] object storage
-- [ ] OCR + document layout
 - [ ] multilingual embeddings
-- [ ] vision-language model
 - [ ] authentication/RBAC
 - [ ] observability
 

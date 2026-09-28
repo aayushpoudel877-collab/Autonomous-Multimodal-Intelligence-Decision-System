@@ -4,7 +4,9 @@ A modular AI/ML platform combining multimodal ingestion, grounded retrieval, pre
 
 ## Implemented
 - PDF ingestion and image analysis
-- TF-IDF grounded retrieval / RAG baseline
+- Hybrid lexical + semantic grounded retrieval / RAG
+- Deterministic local embedding fallback with model-ready interface
+- Evidence provenance with content hashes and retrieval scores
 - Isolation Forest anomaly detection
 - Transparent forecasting baseline
 - NetworkX knowledge graph
@@ -25,7 +27,7 @@ uvicorn app.main:app --reload
 Open `http://localhost:8000` and `/docs`.
 
 ## API
-`POST /api/ingest/text` · `POST /api/ingest/document` · `POST /api/ingest/image` · `POST /api/retrieve` · `POST /api/ask` · `POST /api/anomaly` · `POST /api/forecast` · `POST /api/decision` · `POST /api/agent/run` · `GET /api/knowledge/graph` · `GET /health`
+`POST /api/ingest/text` · `POST /api/ingest/document` · `POST /api/ingest/image` · `POST /api/retrieve` · `POST /api/ask` · `POST /api/anomaly` · `POST /api/forecast` · `POST /api/decision` · `POST /api/agent/run` · `GET /api/knowledge/graph` · `GET /api/audit` · `GET /health`
 
 ## Architecture
 **Data → Ingestion → Retrieval/Knowledge → ML Analytics → Reasoning → Decision → Human Review**

@@ -10,6 +10,7 @@ from .ml import detect_anomalies,forecast
 from .graph import knowledge_graph
 from .decision import make_decision
 from .agent import run_agent
+from .provenance import evidence_record
 
 app=FastAPI(title=settings.app_name,version="1.1.0")
 
@@ -48,12 +49,12 @@ async def image(file:UploadFile=File(...)):
 
 @app.post("/api/retrieve")
 def retrieve(req:RetrieveRequest):
-    return {"results":[{"source":x["source"].model_dump(),"score":x["score"]} for x in retriever.search(req.query,req.top_k)]}
+    return {"results":[{"source":x["source"].model_dump(),"score":x["score"],"lexical_score":x["lexical_score"],"semantic_score":x["semantic_score"],"evidence":evidence_record(x["source"],x["score"])} for x in retriever.search(req.query,req.top_k)]}
 
 @app.post("/api/ask")
 def ask(req:AskRequest):
     rs=retriever.search(req.question,req.top_k)
-    return {"answer":" ".join(x["source"].content[:700] for x in rs) if rs else "No grounded knowledge found. Ingest trusted material first.","sources":[x["source"].id for x in rs]}
+    return {"answer":" ".join(x["source"].content[:700] for x in rs) if rs else "No grounded knowledge found. Ingest trusted material first.","sources":[evidence_record(x["source"],x["score"]) for x in rs]}
 
 @app.post("/api/anomaly")
 def anomaly(req:AnomalyRequest):return detect_anomalies(req.values,req.contamination)

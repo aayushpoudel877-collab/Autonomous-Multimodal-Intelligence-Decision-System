@@ -1,7 +1,7 @@
 import re
 from .schemas import Source
 
-def chunk_text(text: str, size: int = 900, overlap: int = 120):
+def chunk_text(text: str,size: int=900,overlap: int=120):
     text=re.sub(r"\s+"," ",text).strip()
     if not text: return []
     if overlap>=size: raise ValueError("overlap must be smaller than size")
@@ -23,6 +23,6 @@ def chunk_source(source: Source):
 def chunk_document_pages(source: Source,pages:list[dict],size:int=900,overlap:int=120):
     chunks=[]
     for page in pages:
-        page_source=Source(id=f"{source.id}:page:{page['page']}",title=f"{source.title} — Page {page['page']}",content=page.get("text",""),metadata={**source.metadata,"parent_id":source.id,"page":page["page"],"language":page.get("language","unknown"),"extracted_by":page.get("extracted_by","none"),"table_count":page.get("table_count",0),"modality":"document"})
+        page_source=Source(id=f"{source.id}:page:{page['page']}",title=f"{source.title} — Page {page['page']}",content=page.get("text",""),metadata={**source.metadata,"parent_id":source.id,"page":page["page"],"script":page.get("script","unknown"),"extracted_by":page.get("extracted_by","none"),"table_count":page.get("table_count",0),"modality":"document"})
         chunks.extend(chunk_source(page_source))
     return chunks

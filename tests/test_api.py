@@ -20,3 +20,12 @@ def test_chunking():
 def test_audit():
     data=c.get("/api/audit?limit=10").json()
     assert isinstance(data["events"],list)
+
+
+def test_hybrid_retrieval_exposes_scores_and_provenance():
+    response=c.post("/api/retrieve",json={"query":"trustworthy decisions","top_k":3})
+    assert response.status_code==200
+    if response.json()["results"]:
+        item=response.json()["results"][0]
+        assert "semantic_score" in item and "lexical_score" in item
+        assert "evidence" in item and "content_hash" in item["evidence"]

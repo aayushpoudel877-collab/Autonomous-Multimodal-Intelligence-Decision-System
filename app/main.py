@@ -22,8 +22,7 @@ def startup(): retriever.rebuild(store.all())
 def root(): return FileResponse("static/index.html")
 
 @app.get("/health")
-def health():
-    return {"status":"ok","service":settings.app_name,"sources":len(store.all()),"retrieval_ready":retriever.ready}
+def health(): return {"status":"ok","service":settings.app_name,"sources":len(store.all()),"retrieval_ready":retriever.ready}
 
 @app.post("/api/ingest/text")
 def ingest(req:IngestTextRequest):
@@ -32,14 +31,14 @@ def ingest(req:IngestTextRequest):
     return s
 
 @app.post("/api/ingest/document")
-async def document(file:UploadFile=File(...)):
+async def document(file:UploadFile=File(...),ocr_language:str="eng"):
     suffix=os.path.splitext(file.filename or "")[1].lower()
     if suffix!=".pdf": return {"error":"Phase 4 document ingestion currently accepts PDF files."}
     with tempfile.NamedTemporaryFile(delete=False,suffix=suffix) as f:
         f.write(await file.read()); path=f.name
     try:
-        manifest=pdf_document(path,ocr=True)
-        parent=Source(id=str(uuid.uuid4()),title=file.filename or "document.pdf",content="",metadata={"type":"pdf","media_type":"application/pdf","sha256":manifest["sha256"],"page_count":manifest["page_count"],"language":manifest["language"],"modality":"document"})
+        manifest=pdf_document(path,ocr=True,ocr_language=ocr_language)
+        parent=Source(id=str(uuid.uuid4()),title=file.filename or "document.pdf",content="",metadata={"type":"pdf","media_type":"application/pdf","sha256":manifest["sha256"],"page_count":manifest["page_count"],"script":manifest["script"],"modality":"document"})
         page_sources=chunk_document_pages(parent,manifest["pages"])
         for source in page_sources:
             store.add(source); knowledge_graph.add_text(source.id,source.content)
@@ -50,16 +49,15 @@ async def document(file:UploadFile=File(...)):
         except OSError: pass
 
 @app.post("/api/ingest/image")
-async def image(file:UploadFile=File(...)):
+async def image(file:UploadFile=File(...),ocr_language:str="eng"):
     suffix=os.path.splitext(file.filename or "")[1] or ".png"
     with tempfile.NamedTemporaryFile(delete=False,suffix=suffix) as f:
         f.write(await file.read()); path=f.name
     try:
-        analysis=image_document(path,ocr=True)
-        text=analysis["ocr"]["text"]
-        indexed=None
+        analysis=image_document(path,ocr=True,ocr_language=ocr_language)
+        text=analysis["ocr"]["text"]; indexed=None
         if text:
-            indexed=Source(id=str(uuid.uuid4()),title=file.filename or "image",content=text,metadata={"type":"image","modality":"image","sha256":analysis["sha256"],"language":analysis["ocr"]["language"],"extracted_by":"ocr"})
+            indexed=Source(id=str(uuid.uuid4()),title=file.filename or "image",content=text,metadata={"type":"image","modality":"image","sha256":analysis["sha256"],"script":analysis["ocr"]["script"],"extracted_by":"ocr"})
             store.add(indexed); retriever.rebuild(store.all()); knowledge_graph.add_text(indexed.id,text)
         return {"filename":file.filename,"analysis":analysis,"indexed_source":indexed}
     finally:
@@ -77,18 +75,13 @@ def ask(req:AskRequest):
 
 @app.post("/api/anomaly")
 def anomaly(req:AnomalyRequest): return detect_anomalies(req.values,req.contamination)
-
 @app.post("/api/forecast")
 def forecast_api(req:ForecastRequest): return forecast(req.values,req.horizon)
-
 @app.post("/api/decision")
 def decision(req:DecisionRequest): return make_decision(req.question,req.signals,req.evidence)
-
 @app.post("/api/agent/run")
 def agent_api(req:AgentRequest): return run_agent(req.goal,req.context)
-
 @app.get("/api/knowledge/graph")
 def graph(): return knowledge_graph.export()
-
 @app.get("/api/audit")
 def audit(limit:int=100): return {"events":store.audit(limit)}

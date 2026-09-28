@@ -20,3 +20,5 @@ class Decision(BaseModel):
     recommendation:str; confidence:float; evidence:list[str]; reasoning:list[str]; risks:list[str]
 class AuditRequest(BaseModel):
     limit:int=Field(100,ge=1,le=500)
+class RetrievalResult(BaseModel):
+    source:Source; score:float; lexical_score:float; semantic_score:float

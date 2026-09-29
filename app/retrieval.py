@@ -22,8 +22,12 @@ class Retriever:
         texts=[x.content for x in self.s]
         self.tfidf=self.v.fit_transform(texts) if texts else None
         self.embeddings=embedding_model.encode(texts) if texts else None
-        self.vector_repo=build_vector_repository(store.db) if self.s else None
-        if self.s:self.vector_repo.save([x.id for x in self.s],self.embeddings)
+        if self.s:
+            if self.vector_repo is None:
+                self.vector_repo=build_vector_repository(store.db)
+            self.vector_repo.save([x.id for x in self.s],self.embeddings)
+        else:
+            self.vector_repo=None
     def search(self,q,k=5):
         if not self.ready or not q.strip(): return []
         lexical=cosine_similarity(self.v.transform([q]),self.tfidf)[0]
@@ -32,4 +36,8 @@ class Retriever:
         combined=.55*lexical+.45*semantic
         ranked=combined.argsort()[::-1]
         return [{"source":self.s[i],"score":round(float(combined[i]),4),"lexical_score":round(float(lexical[i]),4),"semantic_score":round(float(semantic[i]),4)} for i in ranked[:k] if combined[i]>0]
+    def close(self):
+        if self.vector_repo and hasattr(self.vector_repo,"close"): self.vector_repo.close()
+        self.vector_repo=None
+
 retriever=Retriever()

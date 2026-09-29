@@ -1,5 +1,5 @@
 import os,tempfile,uuid
-from fastapi import FastAPI,File,UploadFile
+from fastapi import FastAPI,File,UploadFile,HTTPException
 from fastapi.responses import FileResponse
 from .config import settings
 from .schemas import *
@@ -13,7 +13,7 @@ from .decision import make_decision
 from .agent import run_agent
 from .provenance import evidence_record
 
-app=FastAPI(title=settings.app_name,version="1.2.0")
+app=FastAPI(title=settings.app_name,version="1.3.0")
 
 @app.on_event("startup")
 def startup(): retriever.rebuild(store.all())
@@ -22,7 +22,8 @@ def startup(): retriever.rebuild(store.all())
 def root(): return FileResponse("static/index.html")
 
 @app.get("/health")
-def health(): return {"status":"ok","service":settings.app_name,"sources":len(store.all()),"retrieval_ready":retriever.ready}
+def health():
+    return {"status":"ok","service":settings.app_name,"sources":len(store.all()),"retrieval_ready":retriever.ready,"storage_backend":settings.storage_backend,"embedding_model":"hash-384-v1"}
 
 @app.post("/api/ingest/text")
 def ingest(req:IngestTextRequest):
@@ -33,7 +34,7 @@ def ingest(req:IngestTextRequest):
 @app.post("/api/ingest/document")
 async def document(file:UploadFile=File(...),ocr_language:str="eng"):
     suffix=os.path.splitext(file.filename or "")[1].lower()
-    if suffix!=".pdf": return {"error":"Phase 4 document ingestion currently accepts PDF files."}
+    if suffix!=".pdf": raise HTTPException(415,"Only PDF documents are supported by this ingestion endpoint.")
     with tempfile.NamedTemporaryFile(delete=False,suffix=suffix) as f:
         f.write(await file.read()); path=f.name
     try:
@@ -45,24 +46,23 @@ async def document(file:UploadFile=File(...),ocr_language:str="eng"):
         retriever.rebuild(store.all())
         return {"document":parent,"manifest":manifest,"indexed_chunks":len(page_sources)}
     finally:
-        try: os.unlink(path)
-        except OSError: pass
+        try:os.unlink(path)
+        except OSError:pass
 
 @app.post("/api/ingest/image")
 async def image(file:UploadFile=File(...),ocr_language:str="eng"):
     suffix=os.path.splitext(file.filename or "")[1] or ".png"
     with tempfile.NamedTemporaryFile(delete=False,suffix=suffix) as f:
-        f.write(await file.read()); path=f.name
+        f.write(await file.read());path=f.name
     try:
-        analysis=image_document(path,ocr=True,ocr_language=ocr_language)
-        text=analysis["ocr"]["text"]; indexed=None
+        analysis=image_document(path,ocr=True,ocr_language=ocr_language); text=analysis["ocr"]["text"]; indexed=None
         if text:
             indexed=Source(id=str(uuid.uuid4()),title=file.filename or "image",content=text,metadata={"type":"image","modality":"image","sha256":analysis["sha256"],"script":analysis["ocr"]["script"],"extracted_by":"ocr"})
-            store.add(indexed); retriever.rebuild(store.all()); knowledge_graph.add_text(indexed.id,text)
+            store.add(indexed);retriever.rebuild(store.all());knowledge_graph.add_text(indexed.id,text)
         return {"filename":file.filename,"analysis":analysis,"indexed_source":indexed}
     finally:
-        try: os.unlink(path)
-        except OSError: pass
+        try:os.unlink(path)
+        except OSError:pass
 
 @app.post("/api/retrieve")
 def retrieve(req:RetrieveRequest):
@@ -74,14 +74,14 @@ def ask(req:AskRequest):
     return {"answer":" ".join(x["source"].content[:700] for x in rs) if rs else "No grounded knowledge found. Ingest trusted material first.","sources":[evidence_record(x["source"],x["score"]) for x in rs]}
 
 @app.post("/api/anomaly")
-def anomaly(req:AnomalyRequest): return detect_anomalies(req.values,req.contamination)
+def anomaly(req:AnomalyRequest):return detect_anomalies(req.values,req.contamination)
 @app.post("/api/forecast")
-def forecast_api(req:ForecastRequest): return forecast(req.values,req.horizon)
+def forecast_api(req:ForecastRequest):return forecast(req.values,req.horizon)
 @app.post("/api/decision")
-def decision(req:DecisionRequest): return make_decision(req.question,req.signals,req.evidence)
+def decision(req:DecisionRequest):return make_decision(req.question,req.signals,req.evidence)
 @app.post("/api/agent/run")
-def agent_api(req:AgentRequest): return run_agent(req.goal,req.context)
+def agent_api(req:AgentRequest):return run_agent(req.goal,req.context)
 @app.get("/api/knowledge/graph")
-def graph(): return knowledge_graph.export()
+def graph():return knowledge_graph.export()
 @app.get("/api/audit")
-def audit(limit:int=100): return {"events":store.audit(limit)}
+def audit(limit:int=100):return {"events":store.audit(limit)}

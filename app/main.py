@@ -1,68 +1,89 @@
-import os,tempfile,uuid
-from fastapi import FastAPI,File,UploadFile,HTTPException
+import os,tempfile
+from fastapi import FastAPI,File,UploadFile,HTTPException,Header
 from fastapi.responses import FileResponse
 from .config import settings
 from .schemas import *
 from .store import store
 from .retrieval import retriever
-from .document_intelligence import pdf_document,image_document
-from .chunking import chunk_document_pages
+from .ingestion import ingest_text,ingest_document,ingest_image
+from .object_storage import object_storage
+from .jobs import job_manager
 from .ml import detect_anomalies,forecast
 from .graph import knowledge_graph
 from .decision import make_decision
 from .agent import run_agent
 from .provenance import evidence_record
+from .observability import metrics
 
-app=FastAPI(title=settings.app_name,version="1.3.0")
+app=FastAPI(title=settings.app_name,version="1.4.0")
 
 @app.on_event("startup")
-def startup(): retriever.rebuild(store.all())
+def startup():
+    retriever.rebuild(store.all())
+    job_manager.recover()
 
 @app.get("/",include_in_schema=False)
 def root(): return FileResponse("static/index.html")
 
 @app.get("/health")
 def health():
-    return {"status":"ok","service":settings.app_name,"sources":len(store.all()),"retrieval_ready":retriever.ready,"storage_backend":settings.storage_backend,"embedding_model":"hash-384-v1"}
+    return {"status":"ok","service":settings.app_name,"sources":len(store.all()),"retrieval_ready":retriever.ready,"storage_backend":settings.storage_backend,"embedding_model":"hash-384-v1","workers":settings.worker_count,"object_storage":"local"}
+
+@app.get("/metrics")
+def health_metrics(): return metrics()
 
 @app.post("/api/ingest/text")
 def ingest(req:IngestTextRequest):
-    s=Source(id=str(uuid.uuid4()),title=req.title,content=req.text,metadata=req.metadata)
-    store.add(s); retriever.rebuild(store.all()); knowledge_graph.add_text(s.id,s.content)
-    return s
+    return ingest_text(req.title,req.text,req.metadata)
 
 @app.post("/api/ingest/document")
 async def document(file:UploadFile=File(...),ocr_language:str="eng"):
     suffix=os.path.splitext(file.filename or "")[1].lower()
     if suffix!=".pdf": raise HTTPException(415,"Only PDF documents are supported by this ingestion endpoint.")
+    data=await file.read()
     with tempfile.NamedTemporaryFile(delete=False,suffix=suffix) as f:
-        f.write(await file.read()); path=f.name
-    try:
-        manifest=pdf_document(path,ocr=True,ocr_language=ocr_language)
-        parent=Source(id=str(uuid.uuid4()),title=file.filename or "document.pdf",content="",metadata={"type":"pdf","media_type":"application/pdf","sha256":manifest["sha256"],"page_count":manifest["page_count"],"script":manifest["script"],"modality":"document"})
-        page_sources=chunk_document_pages(parent,manifest["pages"])
-        for source in page_sources:
-            store.add(source); knowledge_graph.add_text(source.id,source.content)
-        retriever.rebuild(store.all())
-        return {"document":parent,"manifest":manifest,"indexed_chunks":len(page_sources)}
+        f.write(data); path=f.name
+    try:return ingest_document(path,file.filename or "document.pdf",ocr_language)
     finally:
         try:os.unlink(path)
         except OSError:pass
 
 @app.post("/api/ingest/image")
 async def image(file:UploadFile=File(...),ocr_language:str="eng"):
-    suffix=os.path.splitext(file.filename or "")[1] or ".png"
+    suffix=os.path.splitext(file.filename or "")[1] or ".png"; data=await file.read()
     with tempfile.NamedTemporaryFile(delete=False,suffix=suffix) as f:
-        f.write(await file.read());path=f.name
-    try:
-        analysis=image_document(path,ocr=True,ocr_language=ocr_language); text=analysis["ocr"]["text"]; indexed=None
-        if text:
-            indexed=Source(id=str(uuid.uuid4()),title=file.filename or "image",content=text,metadata={"type":"image","modality":"image","sha256":analysis["sha256"],"script":analysis["ocr"]["script"],"extracted_by":"ocr"})
-            store.add(indexed);retriever.rebuild(store.all());knowledge_graph.add_text(indexed.id,text)
-        return {"filename":file.filename,"analysis":analysis,"indexed_source":indexed}
+        f.write(data);path=f.name
+    try:return ingest_image(path,file.filename or "image",ocr_language)
     finally:
         try:os.unlink(path)
         except OSError:pass
+
+@app.post("/api/jobs/text")
+def submit_text_job(req:JobSubmitRequest,idempotency_key:str|None=Header(default=None,alias="Idempotency-Key")):
+    return job_manager.submit("text",{"title":req.title,"text":req.text,"metadata":req.metadata},idempotency_key)
+
+@app.post("/api/jobs/document")
+async def submit_document_job(file:UploadFile=File(...),ocr_language:str="eng",idempotency_key:str|None=Header(default=None,alias="Idempotency-Key")):
+    suffix=os.path.splitext(file.filename or "")[1].lower()
+    if suffix!=".pdf": raise HTTPException(415,"Only PDF documents are supported by this job endpoint.")
+    stored=object_storage.put(await file.read(),file.filename or "document.pdf")
+    return job_manager.submit("document",{"object_key":stored["key"],"filename":file.filename or "document.pdf","suffix":suffix,"ocr_language":ocr_language},idempotency_key)
+
+@app.post("/api/jobs/image")
+async def submit_image_job(file:UploadFile=File(...),ocr_language:str="eng",idempotency_key:str|None=Header(default=None,alias="Idempotency-Key")):
+    filename=file.filename or "image.png"; suffix=os.path.splitext(filename)[1] or ".png"
+    stored=object_storage.put(await file.read(),filename)
+    return job_manager.submit("image",{"object_key":stored["key"],"filename":filename,"suffix":suffix,"ocr_language":ocr_language},idempotency_key)
+
+@app.get("/api/jobs/{job_id}")
+def get_job(job_id:str):
+    job=job_manager.get(job_id)
+    if not job: raise HTTPException(404,"Job not found")
+    return job
+
+@app.get("/api/jobs")
+def list_jobs(limit:int=50):
+    return {"jobs":job_manager.list(max(1,min(limit,200)))}
 
 @app.post("/api/retrieve")
 def retrieve(req:RetrieveRequest):

@@ -27,6 +27,7 @@ class Retriever:
                 self.vector_repo=build_vector_repository(store.db)
             self.vector_repo.save([x.id for x in self.s],self.embeddings)
         else:
+            if self.vector_repo and hasattr(self.vector_repo,"close"): self.vector_repo.close()
             self.vector_repo=None
     def search(self,q,k=5):
         if not self.ready or not q.strip(): return []

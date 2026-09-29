@@ -15,6 +15,13 @@ class PostgresConnection:
             cur.execute("""CREATE TABLE IF NOT EXISTS audit_log(
                 id BIGSERIAL PRIMARY KEY,action TEXT NOT NULL,subject_id TEXT,
                 details JSONB NOT NULL,created_at TIMESTAMPTZ DEFAULT NOW())""")
+            cur.execute("""CREATE TABLE IF NOT EXISTS jobs(
+                id TEXT PRIMARY KEY,type TEXT NOT NULL,status TEXT NOT NULL,payload JSONB NOT NULL,
+                result JSONB,error TEXT,attempts INTEGER NOT NULL DEFAULT 0,max_attempts INTEGER NOT NULL DEFAULT 3,
+                idempotency_key TEXT UNIQUE,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),
+                started_at TIMESTAMPTZ,finished_at TIMESTAMPTZ)""")
+    def close(self):
+        if getattr(self,"conn",None) and not self.conn.closed:self.conn.close()
 
 class PostgresStore(PostgresConnection):
     def upsert(self,source:Source):
@@ -35,21 +42,55 @@ class PostgresStore(PostgresConnection):
             cur.execute("SELECT id,action,subject_id,details,created_at FROM audit_log ORDER BY id DESC LIMIT %s",(limit,))
             rows=cur.fetchall()
         return [{"id":r[0],"action":r[1],"subject_id":r[2],"details":r[3],"created_at":r[4]} for r in rows]
+    def create_job(self,job_id,job_type,payload,idempotency_key,max_attempts=3):
+        with self.conn.cursor() as cur:
+            if idempotency_key:
+                cur.execute("SELECT id,type,status,payload,result,error,attempts,max_attempts,idempotency_key,created_at,updated_at,started_at,finished_at FROM jobs WHERE idempotency_key=%s",(idempotency_key,))
+                row=cur.fetchone()
+                if row:return self._job(row)
+            cur.execute("""INSERT INTO jobs(id,type,status,payload,max_attempts,idempotency_key)
+                VALUES(%s,%s,'queued',%s,%s,%s)
+                RETURNING id,type,status,payload,result,error,attempts,max_attempts,idempotency_key,created_at,updated_at,started_at,finished_at""",
+                (job_id,job_type,json.dumps(payload),max_attempts,idempotency_key))
+            return self._job(cur.fetchone())
+    def update_job(self,job_id,**fields):
+        allowed={"status","result","error","attempts","started_at","finished_at"}
+        fields={k:v for k,v in fields.items() if k in allowed}
+        if not fields:return self.get_job(job_id)
+        sets=[]; vals=[]
+        for k,v in fields.items():
+            sets.append(f"{k}=%s"); vals.append(json.dumps(v) if k=="result" else v)
+        sets.append("updated_at=NOW()"); vals.append(job_id)
+        with self.conn.cursor() as cur:
+            cur.execute(f"UPDATE jobs SET {','.join(sets)} WHERE id=%s RETURNING id,type,status,payload,result,error,attempts,max_attempts,idempotency_key,created_at,updated_at,started_at,finished_at",vals)
+            row=cur.fetchone()
+        return self._job(row)
+    def get_job(self,job_id):
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT id,type,status,payload,result,error,attempts,max_attempts,idempotency_key,created_at,updated_at,started_at,finished_at FROM jobs WHERE id=%s",(job_id,))
+            row=cur.fetchone()
+        return self._job(row) if row else None
+    def list_jobs(self,limit=50):
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT id,type,status,payload,result,error,attempts,max_attempts,idempotency_key,created_at,updated_at,started_at,finished_at FROM jobs ORDER BY created_at DESC LIMIT %s",(limit,))
+            return [self._job(r) for r in cur.fetchall()]
+    @staticmethod
+    def _job(r):
+        if not r:return None
+        keys=["id","type","status","payload","result","error","attempts","max_attempts","idempotency_key","created_at","updated_at","started_at","finished_at"]
+        return dict(zip(keys,r))
 
-class PostgresVectorRepository:
+class PostgresVectorRepository(PostgresConnection):
     model_name="hash-384-v1"
     def __init__(self,url):
-        if not url: raise ValueError("AEGISMIND_POSTGRES_URL is required")
-        import psycopg
-        from pgvector.psycopg import register_vector
-        self.conn=psycopg.connect(url,autocommit=True)
-        register_vector(self.conn)
+        super().__init__(url)
         with self.conn.cursor() as cur:
-            cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
             cur.execute("""CREATE TABLE IF NOT EXISTS embeddings(
                 source_id TEXT PRIMARY KEY,model TEXT NOT NULL,
                 embedding vector(384) NOT NULL,created_at TIMESTAMPTZ DEFAULT NOW())""")
             cur.execute("CREATE INDEX IF NOT EXISTS embeddings_vector_idx ON embeddings USING hnsw (embedding vector_cosine_ops)")
+        from pgvector.psycopg import register_vector
+        register_vector(self.conn)
     def save(self,ids,vectors):
         with self.conn.cursor() as cur:
             for sid,vec in zip(ids,vectors):

@@ -11,6 +11,8 @@ class Settings(BaseModel):
     db_path:str=os.getenv("AEGISMIND_DB_PATH","data/aegismind.db")
     storage_backend:str=os.getenv("AEGISMIND_STORAGE_BACKEND","sqlite").lower()
     postgres_url:str=os.getenv("AEGISMIND_POSTGRES_URL","")
+    object_storage_dir:str=os.getenv("AEGISMIND_OBJECT_STORAGE_DIR","data/objects")
+    worker_count:int=Field(default=int(os.getenv("AEGISMIND_WORKERS","2")),ge=1,le=16)
     chunk_size:int=Field(default=int(os.getenv("CHUNK_SIZE","900")),ge=100)
     chunk_overlap:int=Field(default=int(os.getenv("CHUNK_OVERLAP","120")),ge=0)
 settings=Settings()

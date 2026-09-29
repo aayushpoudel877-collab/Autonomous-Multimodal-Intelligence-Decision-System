@@ -1,5 +1,4 @@
 import json
-import os
 import sqlite3
 from pathlib import Path
 from threading import Lock
@@ -27,23 +26,51 @@ class SQLiteStore:
                 id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL,
                 subject_id TEXT, details TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )""")
+            con.execute("""CREATE TABLE IF NOT EXISTS embeddings (
+                source_id TEXT PRIMARY KEY, model TEXT NOT NULL, dimension INTEGER NOT NULL,
+                vector TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )""")
             con.commit()
 
     def upsert(self, source: Source):
         with self.lock, self._connect() as con:
-            con.execute("INSERT OR REPLACE INTO sources(id,title,content,metadata) VALUES(?,?,?,?)",
-                        (source.id, source.title, source.content, json.dumps(source.metadata)))
-            con.execute("INSERT INTO audit_log(action,subject_id,details) VALUES(?,?,?)",
-                        ("source.upsert", source.id, json.dumps({"title": source.title})))
+            con.execute(
+                "INSERT OR REPLACE INTO sources(id,title,content,metadata) VALUES(?,?,?,?)",
+                (source.id, source.title, source.content, json.dumps(source.metadata)),
+            )
+            con.execute(
+                "INSERT INTO audit_log(action,subject_id,details) VALUES(?,?,?)",
+                ("source.upsert", source.id, json.dumps({"title": source.title})),
+            )
             con.commit()
         return source
 
     def all(self):
         with self._connect() as con:
-            rows = con.execute("SELECT id,title,content,metadata FROM sources ORDER BY created_at,id").fetchall()
-        return [Source(id=r["id"], title=r["title"], content=r["content"], metadata=json.loads(r["metadata"])) for r in rows]
+            rows = con.execute(
+                "SELECT id,title,content,metadata FROM sources ORDER BY created_at,id"
+            ).fetchall()
+        return [
+            Source(id=r["id"], title=r["title"], content=r["content"], metadata=json.loads(r["metadata"]))
+            for r in rows
+        ]
+
+    def save_embeddings(self, ids, vectors, model: str):
+        rows = [
+            (sid, model, int(len(vec)), json.dumps([float(x) for x in vec]))
+            for sid, vec in zip(ids, vectors)
+        ]
+        with self.lock, self._connect() as con:
+            con.executemany(
+                "INSERT OR REPLACE INTO embeddings(source_id,model,dimension,vector) VALUES(?,?,?,?)",
+                rows,
+            )
+            con.commit()
 
     def audit(self, limit=100):
         with self._connect() as con:
-            rows = con.execute("SELECT id,action,subject_id,details,created_at FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+            rows = con.execute(
+                "SELECT id,action,subject_id,details,created_at FROM audit_log ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
         return [dict(r) for r in rows]

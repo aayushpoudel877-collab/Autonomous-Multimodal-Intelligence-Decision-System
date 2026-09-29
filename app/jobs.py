@@ -51,7 +51,10 @@ class JobManager:
     def _image(self,p): return self._file(p,"image")
     def recover(self):
         for job in store.db.list_jobs(200):
-            if job["status"] in {"queued","retrying"}: self.executor.submit(self._run,job["id"])
+            if job["status"] == "running":
+                store.db.update_job(job["id"],status="queued",error="Recovered after worker interruption")
+            if job["status"] in {"queued","retrying"}:
+                self.executor.submit(self._run,job["id"])
     def get(self,job_id): return self.public(store.db.get_job(job_id))
     def list(self,limit=50): return [self.public(x) for x in store.db.list_jobs(limit)]
     @staticmethod

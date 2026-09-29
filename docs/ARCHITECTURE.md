@@ -1,40 +1,39 @@
 # AegisMind Architecture
 
-AegisMind is organized as a modular intelligence pipeline:
+AegisMind follows:
 
-**Ingestion → document intelligence → normalization → hybrid retrieval/knowledge → ML analytics → reasoning → decision → human review**
+**Ingestion → document intelligence → persistent sources → vector indexing → hybrid retrieval → evidence → analytics/reasoning → decision → human review**
 
-### Current implementation
-- FastAPI service
-- page-aware PDF ingestion with per-page provenance
-- optional scanned-page OCR using Tesseract + PyMuPDF
-- PDF table extraction adapter
-- Devanagari/Latin/mixed-script detection signals
-- image metadata and optional OCR
-- hybrid TF-IDF + deterministic embedding retrieval
-- evidence provenance with content hashes and retrieval scores
-- Isolation Forest anomaly detection
-- Linear regression forecasting
-- NetworkX knowledge graph
-- deterministic agent orchestration
-- structured confidence/evidence/risk output
-- Docker and CI
+## Phase 5 infrastructure
 
-### Multimodal document contract
+Two persistence modes are supported:
 
-Each document manifest contains:
-- document hash and media type
-- page count
-- page-level text
-- extraction method: text, OCR, or none
-- script signal
-- table count and extracted table cells when available
-- parent document ID and page-aware chunk metadata
+- **SQLite**: zero-configuration local development; sources, audit events, and vector representations are persisted in the local database.
+- **PostgreSQL + pgvector**: containerized production-style mode; sources, JSON metadata, audit events, and 384-dimensional vector representations are persisted in PostgreSQL, with an HNSW cosine index for vector candidate retrieval.
 
-OCR language is configurable per ingestion request. The default Docker image installs Tesseract's standard English data; additional language packs can be installed when required. Script detection is intentionally heuristic and does not claim full language identification.
+The embedding implementation remains a deterministic local baseline. pgvector provides storage and indexing; it does not turn the hash embedding into a learned semantic model.
 
-### Production extension points
-Replace baseline components with PostgreSQL/pgvector, object storage, production OCR/layout models, multilingual embedding models, vision-language models, model registry, RBAC, distributed audit logging and GPU inference.
+## Document intelligence
 
-### Research directions
-Multilingual low-resource retrieval, multimodal evidence fusion, uncertainty calibration, poisoned-document robustness, causal forecasting, continual learning and agent trajectory evaluation.
+PDFs are processed page-by-page with:
+- native text extraction
+- optional OCR for scanned pages
+- PDF table extraction
+- Devanagari/Latin script signals
+- page-level hashes/provenance metadata
+
+Images support metadata extraction and optional OCR.
+
+Page-level document records are marked as pre-indexed so the retrieval layer does not accidentally chunk them a second time.
+
+## Retrieval
+
+Hybrid retrieval combines:
+- TF-IDF lexical similarity
+- deterministic 384-dimensional vector similarity
+
+The vector repository is selected from configuration without changing the retrieval API.
+
+## Production extension points
+
+Next infrastructure work includes Redis-backed asynchronous jobs, object storage, multilingual learned embeddings, authentication/RBAC, observability, model registry, and multimodal evidence fusion.

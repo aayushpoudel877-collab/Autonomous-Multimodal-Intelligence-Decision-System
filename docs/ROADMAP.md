@@ -30,15 +30,33 @@
 ## Phase 5 — Production Intelligence Infrastructure
 - [x] storage backend configuration
 - [x] persistent vector representation
+- [x] SQLite vector reload on startup
 - [x] PostgreSQL + pgvector backend
 - [x] Docker Compose production-style database stack
 - [x] retrieval compatibility for pre-indexed document pages
 - [x] backend/capability health reporting
-- [ ] Redis task queue
-- [ ] object storage
+- [x] PostgreSQL connection reuse
+- [ ] Redis/distributed task queue
+- [ ] object storage abstraction with S3-compatible backend
 - [ ] production multilingual embeddings
 - [ ] authentication/RBAC
-- [ ] observability
+- [ ] distributed observability
+
+## Phase 6 — Asynchronous Intelligence Orchestration
+- [x] durable job state
+- [x] bounded background worker pool
+- [x] text/PDF/image job handlers
+- [x] retry policy with persisted attempt counts
+- [x] idempotency-key support
+- [x] startup recovery for queued jobs
+- [x] local object storage for uploaded artifacts
+- [x] job status/list APIs
+- [x] operational job metrics
+- [ ] distributed workers via Redis
+- [ ] S3-compatible object storage
+- [ ] scheduled/batched processing
+- [ ] dead-letter queue
+- [ ] distributed tracing
 
 ## Research
 - [ ] Nepali/English benchmark

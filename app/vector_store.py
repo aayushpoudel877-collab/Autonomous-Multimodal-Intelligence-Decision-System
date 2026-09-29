@@ -9,8 +9,11 @@ class VectorRepository:
 class SQLiteVectorRepository(VectorRepository):
     def __init__(self,db):
         self.db=db; self.vectors={}
+        for sid,vec in db.load_embeddings(self.model_name).items():
+            self.vectors[sid]=np.asarray(vec,dtype=np.float32)
     def save(self,ids,vectors):
-        self.vectors={sid:np.asarray(vec,dtype=np.float32) for sid,vec in zip(ids,vectors)}
+        for sid,vec in zip(ids,vectors):
+            self.vectors[sid]=np.asarray(vec,dtype=np.float32)
         self.db.save_embeddings(ids,vectors,self.model_name)
     def search(self,query,ids,k=5):
         q=np.asarray(query,dtype=np.float32)

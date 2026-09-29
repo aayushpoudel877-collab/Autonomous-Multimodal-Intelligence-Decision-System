@@ -2,9 +2,14 @@ from threading import Lock
 from .schemas import Source
 from .config import settings
 from .persistence import SQLiteStore
+
 class KnowledgeStore:
     def __init__(self):
-        self.db=SQLiteStore(settings.db_path)
+        if settings.storage_backend=="postgres":
+            from .postgres import PostgresStore
+            self.db=PostgresStore(settings.postgres_url)
+        else:
+            self.db=SQLiteStore(settings.db_path)
         self.items={s.id:s for s in self.db.all()}
         self.lock=Lock()
     def add(self,s):

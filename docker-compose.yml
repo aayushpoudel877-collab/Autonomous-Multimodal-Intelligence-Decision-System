@@ -6,10 +6,13 @@ services:
       AEGISMIND_STORAGE_BACKEND: postgres
       AEGISMIND_POSTGRES_URL: postgresql://aegismind:aegismind@postgres:5432/aegismind
       AEGISMIND_DB_PATH: /app/data/aegismind.db
+      AEGISMIND_OBJECT_STORAGE_DIR: /app/data/objects
+      AEGISMIND_WORKERS: 2
     depends_on:
       postgres:
         condition: service_healthy
-    volumes: [aegismind-data:/app/data]
+    volumes:
+      - aegismind-data:/app/data
     restart: unless-stopped
   postgres:
     image: pgvector/pgvector:pg16
@@ -18,7 +21,8 @@ services:
       POSTGRES_USER: aegismind
       POSTGRES_PASSWORD: aegismind
     ports: ["5432:5432"]
-    volumes: [aegismind-postgres:/var/lib/postgresql/data]
+    volumes:
+      - aegismind-postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL","pg_isready -U aegismind -d aegismind"]
       interval: 5s

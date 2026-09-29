@@ -21,17 +21,22 @@
 - [x] scanned-page OCR adapter
 - [x] image OCR adapter
 - [x] PDF table extraction adapter
-- [x] English/Nepali/mixed-script detection
+- [x] script detection
 - [x] page-level provenance metadata
 - [ ] document layout/schema extraction
 - [ ] vision-language model integration
 - [ ] multimodal evidence fusion
 
-## Scale
-- [ ] PostgreSQL + pgvector
+## Phase 5 — Production Intelligence Infrastructure
+- [x] storage backend configuration
+- [x] persistent vector representation
+- [x] PostgreSQL + pgvector backend
+- [x] Docker Compose production-style database stack
+- [x] retrieval compatibility for pre-indexed document pages
+- [x] backend/capability health reporting
 - [ ] Redis task queue
 - [ ] object storage
-- [ ] multilingual embeddings
+- [ ] production multilingual embeddings
 - [ ] authentication/RBAC
 - [ ] observability
 

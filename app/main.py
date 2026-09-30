@@ -15,6 +15,9 @@ from .graph import knowledge_graph
 from .decision import make_decision
 from .agent import run_agent
 from .provenance import evidence_record
+from .evaluation import RetrievalQuery,evaluate
+from .evidence_fusion import fuse_evidence
+from .embeddings import embedding_model
 from .observability import metrics
 
 app=FastAPI(title=settings.app_name,version="1.5.0")
@@ -38,7 +41,7 @@ def root(): return FileResponse("static/index.html")
 
 @app.get("/health")
 def health():
-    return {"status":"ok","service":settings.app_name,"sources":len(store.all()),"retrieval_ready":retriever.ready,"storage_backend":settings.storage_backend,"embedding_model":"hash-384-v1","workers":settings.worker_count,"object_storage":settings.object_storage_backend}
+    return {"status":"ok","service":settings.app_name,"sources":len(store.all()),"retrieval_ready":retriever.ready,"storage_backend":settings.storage_backend,"embedding_model":embedding_model.name,"workers":settings.worker_count,"object_storage":settings.object_storage_backend}
 
 @app.get("/metrics")
 def health_metrics(): return metrics()
@@ -103,7 +106,13 @@ def retrieve(req:RetrieveRequest):
 @app.post("/api/ask")
 def ask(req:AskRequest):
     rs=retriever.search(req.question,req.top_k)
-    return {"answer":" ".join(x["source"].content[:700] for x in rs) if rs else "No grounded knowledge found. Ingest trusted material first.","sources":[evidence_record(x["source"],x["score"]) for x in rs]}
+    fused=fuse_evidence(rs,req.top_k)
+    return {"answer":" ".join(x["source"].content[:700] for x in fused) if fused else "No grounded knowledge found. Ingest trusted material first.","sources":[evidence_record(x["source"],x["score"]) for x in fused],"evidence_fusion":fused}
+
+@app.post("/api/evaluate/retrieval")
+def evaluate_retrieval(req:RetrievalEvaluationRequest):
+    queries=[RetrievalQuery(query=x.query,relevant_ids=x.relevant_ids) for x in req.queries]
+    return {"embedding_model":embedding_model.name,**evaluate(queries,req.k)}
 
 @app.post("/api/anomaly")
 def anomaly(req:AnomalyRequest):return detect_anomalies(req.values,req.contamination)

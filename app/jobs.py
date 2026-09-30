@@ -5,19 +5,25 @@ from .config import settings
 from .object_storage import object_storage
 from .store import store
 from .ingestion import ingest_text,ingest_document,ingest_image
+from .queue import build_queue
 
 log=logging.getLogger(__name__)
 
 class JobManager:
     def __init__(self):
-        self.executor=ThreadPoolExecutor(max_workers=settings.worker_count,thread_name_prefix="aegismind")
+        self.executor=ThreadPoolExecutor(max_workers=settings.worker_count,thread_name_prefix="aegismind") if settings.queue_backend=="local" else None
+        self.queue=build_queue()
         self.handlers={"text":self._text,"document":self._document,"image":self._image}
     def submit(self,job_type,payload,idempotency_key=None,max_attempts=3):
         job=self._create(job_type,payload,idempotency_key,max_attempts)
-        if job["status"] in {"queued","retrying"}: self.executor.submit(self._run,job["id"])
+        if job["status"] in {"queued","retrying"}:
+                if settings.queue_backend=="redis": self.queue.enqueue(job["id"])
+                else: self.executor.submit(self._run,job["id"])
         return self.public(job)
     def _create(self,job_type,payload,idempotency_key,max_attempts):
         return store.db.create_job(str(uuid.uuid4()),job_type,payload,idempotency_key,max_attempts)
+    def run_job(self,job_id):
+        return self._run(job_id)
     def _run(self,job_id):
         job=store.db.get_job(job_id)
         if not job:return
@@ -30,7 +36,7 @@ class JobManager:
             log.exception("AegisMind job %s failed",job_id)
             if attempts < int(job["max_attempts"]):
                 store.db.update_job(job_id,status="retrying",error=str(exc))
-                self.executor.submit(self._run,job_id)
+                (self.queue.enqueue(job_id) if settings.queue_backend=="redis" else self.executor.submit(self._run,job_id))
             else:
                 store.db.update_job(job_id,status="failed",error=str(exc),finished_at=datetime.now(timezone.utc).isoformat())
     def _text(self,p):

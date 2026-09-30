@@ -16,3 +16,6 @@ pymupdf>=1.24
 pytesseract>=0.3.13
 psycopg[binary]>=3.2
 pgvector>=0.3
+
+redis>=5.2
+boto3>=1.35

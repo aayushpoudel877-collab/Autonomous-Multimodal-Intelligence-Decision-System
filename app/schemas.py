@@ -1,11 +1,17 @@
 from typing import Any
 from pydantic import BaseModel,Field
+
 class Source(BaseModel):
     id:str; title:str; content:str; metadata:dict[str,Any]={}
 class IngestTextRequest(BaseModel):
     title:str; text:str; metadata:dict[str,Any]={}
 class RetrieveRequest(BaseModel):
     query:str; top_k:int=Field(5,ge=1,le=20)
+class RetrievalEvaluationQuery(BaseModel):
+    query:str; relevant_ids:list[str]=Field(min_length=1)
+class RetrievalEvaluationRequest(BaseModel):
+    queries:list[RetrievalEvaluationQuery]=Field(min_length=1,max_length=500)
+    k:int=Field(5,ge=1,le=20)
 class AskRequest(BaseModel):
     question:str; top_k:int=Field(5,ge=1,le=20)
 class AnomalyRequest(BaseModel):

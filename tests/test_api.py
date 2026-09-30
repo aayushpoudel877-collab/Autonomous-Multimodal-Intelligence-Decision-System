@@ -13,7 +13,7 @@ def test_health():
     data=c.get("/health").json()
     assert data["status"]=="ok"
     assert data["storage_backend"] in {"sqlite","postgres"}
-    assert data["retrieval_ready"] in (True,False)
+    assert data["retrieval_ready"] in (True,False)\n    assert data["embedding_model"]
 
 def test_pipeline():
     response=c.post("/api/ingest/text",json={"title":"Policy","text":"AegisMind supports trustworthy decisions.","metadata":{}})

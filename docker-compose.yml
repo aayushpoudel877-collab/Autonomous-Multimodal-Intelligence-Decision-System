@@ -5,29 +5,84 @@ services:
     environment:
       AEGISMIND_STORAGE_BACKEND: postgres
       AEGISMIND_POSTGRES_URL: postgresql://aegismind:aegismind@postgres:5432/aegismind
-      AEGISMIND_DB_PATH: /app/data/aegismind.db
-      AEGISMIND_OBJECT_STORAGE_DIR: /app/data/objects
+      AEGISMIND_OBJECT_STORAGE_BACKEND: s3
+      AEGISMIND_S3_BUCKET: aegismind
+      AEGISMIND_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: aegismind
+      AWS_SECRET_ACCESS_KEY: aegismind-secret
+      AEGISMIND_QUEUE_BACKEND: redis
+      AEGISMIND_REDIS_URL: redis://redis:6379/0
+      AEGISMIND_REDIS_QUEUE: aegismind:jobs
+      AEGISMIND_REDIS_DLQ: aegismind:jobs:dlq
       AEGISMIND_WORKERS: 2
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - aegismind-data:/app/data
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
     restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["python","-m","app.worker"]
+    environment:
+      AEGISMIND_STORAGE_BACKEND: postgres
+      AEGISMIND_POSTGRES_URL: postgresql://aegismind:aegismind@postgres:5432/aegismind
+      AEGISMIND_OBJECT_STORAGE_BACKEND: s3
+      AEGISMIND_S3_BUCKET: aegismind
+      AEGISMIND_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: aegismind
+      AWS_SECRET_ACCESS_KEY: aegismind-secret
+      AEGISMIND_QUEUE_BACKEND: redis
+      AEGISMIND_REDIS_URL: redis://redis:6379/0
+      AEGISMIND_REDIS_QUEUE: aegismind:jobs
+      AEGISMIND_REDIS_DLQ: aegismind:jobs:dlq
+      AEGISMIND_WORKERS: 2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes: [aegismind-redis:/data]
+    healthcheck:
+      test: ["CMD","redis-cli","ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: aegismind
+      MINIO_ROOT_PASSWORD: aegismind-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes: [aegismind-objects:/data]
+
   postgres:
     image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: aegismind
       POSTGRES_USER: aegismind
       POSTGRES_PASSWORD: aegismind
-    ports: ["5432:5432"]
-    volumes:
-      - aegismind-postgres:/var/lib/postgresql/data
+    volumes: [aegismind-postgres:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL","pg_isready -U aegismind -d aegismind"]
       interval: 5s
       timeout: 5s
       retries: 10
+
 volumes:
-  aegismind-data:
   aegismind-postgres:
+  aegismind-redis:
+  aegismind-objects:

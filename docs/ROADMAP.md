@@ -36,11 +36,7 @@
 - [x] retrieval compatibility for pre-indexed document pages
 - [x] backend/capability health reporting
 - [x] PostgreSQL connection reuse
-- [ ] Redis/distributed task queue
-- [ ] object storage abstraction with S3-compatible backend
 - [ ] production multilingual embeddings
-- [ ] authentication/RBAC
-- [ ] distributed observability
 
 ## Phase 6 — Asynchronous Intelligence Orchestration
 - [x] durable job state
@@ -48,15 +44,26 @@
 - [x] text/PDF/image job handlers
 - [x] retry policy with persisted attempt counts
 - [x] idempotency-key support
-- [x] startup recovery for queued jobs
-- [x] local object storage for uploaded artifacts
+- [x] startup recovery
+- [x] local object storage
 - [x] job status/list APIs
 - [x] operational job metrics
-- [ ] distributed workers via Redis
-- [ ] S3-compatible object storage
+
+## Phase 7 — Distributed Production Orchestration
+- [x] Redis-backed distributed job queue
+- [x] dedicated worker process
+- [x] atomic job claiming to prevent duplicate execution
+- [x] persisted retry/dead-letter flow
+- [x] S3-compatible object-storage adapter
+- [x] MinIO development deployment
+- [x] optional API-key authentication for write APIs
+- [x] distributed Docker Compose stack
+- [x] worker-safe startup recovery
 - [ ] scheduled/batched processing
-- [ ] dead-letter queue
-- [ ] distributed tracing
+- [ ] distributed tracing/OpenTelemetry
+- [ ] production secret manager integration
+- [ ] horizontal autoscaling policy
+- [ ] rate limiting and per-tenant quotas
 
 ## Research
 - [ ] Nepali/English benchmark

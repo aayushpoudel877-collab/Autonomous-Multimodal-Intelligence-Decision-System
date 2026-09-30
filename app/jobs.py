@@ -14,8 +14,8 @@ class JobManager:
         self.executor=ThreadPoolExecutor(max_workers=settings.worker_count,thread_name_prefix="aegismind") if settings.queue_backend=="local" else None
         self.queue=build_queue()
         self.handlers={"text":self._text,"document":self._document,"image":self._image}
-    def submit(self,job_type,payload,idempotency_key=None,max_attempts=3):
-        job=self._create(job_type,payload,idempotency_key,max_attempts)
+    def submit(self,job_type,payload,idempotency_key=None,max_attempts=None):
+        job=self._create(job_type,payload,idempotency_key,max_attempts or settings.job_max_attempts)
         if job["status"] in {"queued","retrying"}:
                 if settings.queue_backend=="redis": self.queue.enqueue(job["id"])
                 else: self.executor.submit(self._run,job["id"])
@@ -39,6 +39,7 @@ class JobManager:
                 (self.queue.enqueue(job_id) if settings.queue_backend=="redis" else self.executor.submit(self._run,job_id))
             else:
                 store.db.update_job(job_id,status="failed",error=str(exc),finished_at=datetime.now(timezone.utc).isoformat())
+                if settings.queue_backend=="redis" and hasattr(self.queue,"dead_letter_job"): self.queue.dead_letter_job(job_id)
     def _text(self,p):
         return ingest_text(p["title"],p["text"],p.get("metadata"))
     def _file(self,p,kind):
@@ -60,7 +61,8 @@ class JobManager:
             if job["status"] == "running":
                 store.db.update_job(job["id"],status="queued",error="Recovered after worker interruption")
             if job["status"] in {"queued","retrying"}:
-                self.executor.submit(self._run,job["id"])
+                if settings.queue_backend=="redis": self.queue.enqueue(job["id"])
+                else: self.executor.submit(self._run,job["id"])
     def get(self,job_id): return self.public(store.db.get_job(job_id))
     def list(self,limit=50): return [self.public(x) for x in store.db.list_jobs(limit)]
     @staticmethod

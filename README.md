@@ -7,7 +7,7 @@ A modular AI/ML platform combining multimodal ingestion, grounded retrieval, pre
 - Page-aware PDF ingestion with OCR and table extraction
 - Image OCR and media metadata
 - Devanagari/Latin script signals
-- Hybrid TF-IDF + deterministic 384-dimensional embedding retrieval
+- Hybrid TF-IDF + learned multilingual 384-dimensional embedding retrieval with deterministic fallback
 - Persisted vector representations
 - SQLite development backend
 - PostgreSQL + pgvector production-style backend
@@ -23,7 +23,7 @@ A modular AI/ML platform combining multimodal ingestion, grounded retrieval, pre
 - Local filesystem and S3-compatible object storage
 - Optional API-key protection for write APIs
 - Docker Compose stack with PostgreSQL, Redis, MinIO, API, and workers
-- Automated tests and CI
+- Retrieval evaluation with Recall@K, MRR, and nDCG\n- Deterministic cross-modal evidence fusion\n- Temperature-scaling confidence calibration primitive\n- Automated tests and CI
 
 ## Run locally
 
@@ -59,7 +59,7 @@ Set `AEGISMIND_QUEUE_BACKEND=redis` and `AEGISMIND_REDIS_URL` to enable distribu
 
 Set `AEGISMIND_OBJECT_STORAGE_BACKEND=s3` together with `AEGISMIND_S3_BUCKET` and optional `AEGISMIND_S3_ENDPOINT_URL` for S3-compatible storage.
 
-Set `AEGISMIND_API_KEYS` to a comma-separated list such as `admin-secret:admin,reader-secret:reader`. When configured, non-GET APIs require a valid `X-API-Key`.
+Set `AEGISMIND_EMBEDDING_PROVIDER=sentence-transformers` to enable the learned multilingual encoder. The default hash provider remains suitable for offline tests.\n\nSet `AEGISMIND_API_KEYS` to a comma-separated list such as `admin-secret:admin,reader-secret:reader`. When configured, non-GET APIs require a valid `X-API-Key`.
 
 Do not use the development credentials in `docker-compose.yml` for an internet-exposed deployment; move credentials to a secret manager or deployment secret store.
 
@@ -71,7 +71,7 @@ Do not use the development credentials in `docker-compose.yml` for an internet-e
 
 `GET /api/jobs` · `GET /api/jobs/{job_id}` · `GET /metrics` · `GET /health`
 
-`POST /api/retrieve` · `POST /api/ask` · `POST /api/anomaly` · `POST /api/forecast` · `POST /api/decision` · `POST /api/agent/run`
+`POST /api/retrieve` · `POST /api/ask` · `POST /api/evaluate/retrieval` · `POST /api/anomaly` · `POST /api/forecast` · `POST /api/decision` · `POST /api/agent/run`
 
 ## Architecture
 

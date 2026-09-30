@@ -24,8 +24,6 @@ class JobManager:
         return store.db.create_job(str(uuid.uuid4()),job_type,payload,idempotency_key,max_attempts)
     def run_job(self,job_id):
         return self._run(job_id)
-    def run_job(self,job_id):
-        return self._run(job_id)
     def _run(self,job_id):
         job=store.db.claim_job(job_id)
         if not job:return

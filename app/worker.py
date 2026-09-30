@@ -9,6 +9,7 @@ log=logging.getLogger("aegismind.worker")
 def run():
     if settings.queue_backend!="redis": raise RuntimeError("Worker service requires AEGISMIND_QUEUE_BACKEND=redis")
     queue=RedisQueue()
+    job_manager.recover()
     log.info("AegisMind distributed worker started")
     while True:
         job_id=queue.receive(timeout=10)

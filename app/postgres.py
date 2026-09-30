@@ -53,6 +53,14 @@ class PostgresStore(PostgresConnection):
                 RETURNING id,type,status,payload,result,error,attempts,max_attempts,idempotency_key,created_at,updated_at,started_at,finished_at""",
                 (job_id,job_type,json.dumps(payload),max_attempts,idempotency_key))
             return self._job(cur.fetchone())
+    def claim_job(self,job_id):
+        with self.conn.cursor() as cur:
+            cur.execute("""UPDATE jobs SET status='running',attempts=attempts+1,started_at=NOW(),updated_at=NOW(),error=NULL
+                WHERE id=%s AND status IN ('queued','retrying')
+                RETURNING id,type,status,payload,result,error,attempts,max_attempts,idempotency_key,created_at,updated_at,started_at,finished_at""",(job_id,))
+            row=cur.fetchone()
+        return self._job(row)
+
     def update_job(self,job_id,**fields):
         allowed={"status","result","error","attempts","started_at","finished_at"}
         fields={k:v for k,v in fields.items() if k in allowed}

@@ -1,6 +1,6 @@
 import os,tempfile
 from fastapi import FastAPI,File,UploadFile,HTTPException,Header
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse,JSONResponse
 from fastapi import Request
 from fastapi import Request
 from .security import verify_api_key
@@ -23,7 +23,10 @@ app=FastAPI(title=settings.app_name,version="1.5.0")
 @app.middleware("http")
 async def api_security(request:Request,call_next):
     if settings.api_keys and request.method not in {"GET","HEAD","OPTIONS"} and request.url.path!="/health":
-        verify_api_key(request.headers.get("X-API-Key"))
+        try:
+            verify_api_key(request.headers.get("X-API-Key"))
+        except HTTPException as exc:
+            return JSONResponse(status_code=exc.status_code,content={"detail":exc.detail})
     return await call_next(request)
 
 @app.middleware("http")

@@ -8,6 +8,9 @@ class Settings(BaseModel):
     llm_provider:str=os.getenv("LLM_PROVIDER","local")
     llm_api_key:str=os.getenv("LLM_API_KEY","")
     llm_model:str=os.getenv("LLM_MODEL","")
+    embedding_provider:str=os.getenv("AEGISMIND_EMBEDDING_PROVIDER","hash").lower()
+    embedding_model:str=os.getenv("AEGISMIND_EMBEDDING_MODEL","sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+    embedding_strict:bool=os.getenv("AEGISMIND_EMBEDDING_STRICT","false").lower()=="true"
     db_path:str=os.getenv("AEGISMIND_DB_PATH","data/aegismind.db")
     storage_backend:str=os.getenv("AEGISMIND_STORAGE_BACKEND","sqlite").lower()
     postgres_url:str=os.getenv("AEGISMIND_POSTGRES_URL","")

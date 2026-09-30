@@ -7,7 +7,8 @@ class S3ObjectStorage:
         self.client=boto3.client("s3",**kwargs); self.bucket=bucket
         try: self.client.head_bucket(Bucket=bucket)
         except self.client.exceptions.ClientError:
-            self.client.create_bucket(Bucket=bucket)
+            try: self.client.create_bucket(Bucket=bucket)
+            except self.client.exceptions.ClientError: pass
     def put(self,data,filename="object.bin"):
         import hashlib
         digest=hashlib.sha256(data).hexdigest()

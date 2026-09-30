@@ -43,3 +43,14 @@ Hybrid retrieval combines TF-IDF lexical similarity with deterministic 384-dimen
 - The object-storage backend is local filesystem only.
 - The semantic embedding is still a deterministic hash baseline rather than a learned multilingual model.
 - Authentication/RBAC, distributed tracing, model registry, VLM integration, and multimodal evidence fusion remain future work.
+
+
+## Phase 7 — Distributed production orchestration
+
+Phase 6's process-local executor is retained for zero-configuration development, but scalable deployments can use Redis as the durable work queue. The API persists jobs in PostgreSQL, stores uploaded artifacts in shared S3-compatible object storage, and pushes only job identifiers into Redis.
+
+A dedicated worker process consumes the queue. Before processing, the worker atomically changes a queued/retrying job to running. This prevents two workers from executing the same attempt concurrently. Failed attempts are persisted; retryable failures return to the queue, while exhausted failures are also written to the Redis dead-letter queue.
+
+The distributed Docker stack provides PostgreSQL/pgvector, Redis, MinIO, the API, and a dedicated worker. MinIO is used as a local S3-compatible development service; production deployments should replace development credentials with managed secrets and use managed/object-storage infrastructure where appropriate.
+
+Optional API-key authentication can protect write APIs. This is intentionally a lightweight deployment guard rather than a complete identity/RBAC system; tenant isolation, OAuth/OIDC, rate limits, and fine-grained permissions remain future work.

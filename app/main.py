@@ -2,6 +2,7 @@ import os,tempfile
 from fastapi import FastAPI,File,UploadFile,HTTPException,Header
 from fastapi.responses import FileResponse
 from fastapi import Request
+from fastapi import Request
 from .security import verify_api_key
 from .config import settings
 from .schemas import *
@@ -18,6 +19,12 @@ from .provenance import evidence_record
 from .observability import metrics
 
 app=FastAPI(title=settings.app_name,version="1.5.0")
+
+@app.middleware("http")
+async def api_security(request:Request,call_next):
+    if settings.api_keys and request.method not in {"GET","HEAD","OPTIONS"} and request.url.path!="/health":
+        verify_api_key(request.headers.get("X-API-Key"))
+    return await call_next(request)
 
 @app.middleware("http")
 async def api_security(request:Request,call_next):

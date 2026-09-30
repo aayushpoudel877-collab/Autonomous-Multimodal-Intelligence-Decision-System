@@ -45,6 +45,15 @@ class SQLiteStore:
             con.execute("INSERT INTO jobs(id,type,status,payload,max_attempts,idempotency_key) VALUES(?,?,?,?,?,?)",(job_id,job_type,"queued",json.dumps(payload),max_attempts,idempotency_key))
             row=con.execute("SELECT * FROM jobs WHERE id=?",(job_id,)).fetchone(); con.commit()
         return dict(row)
+    def claim_job(self,job_id):
+        with self.lock,self._connect() as con:
+            row=con.execute("SELECT * FROM jobs WHERE id=? AND status IN ('queued','retrying')",(job_id,)).fetchone()
+            if not row:return None
+            attempts=int(row["attempts"])+1
+            con.execute("UPDATE jobs SET status='running',attempts=?,started_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,error=NULL WHERE id=? AND status IN ('queued','retrying')",(attempts,job_id))
+            con.commit()
+        return self.get_job(job_id)
+
     def update_job(self,job_id,**fields):
         allowed={"status","result","error","attempts","started_at","finished_at","updated_at"}
         fields={k:v for k,v in fields.items() if k in allowed}

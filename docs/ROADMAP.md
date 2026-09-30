@@ -25,7 +25,6 @@
 - [x] page-level provenance metadata
 - [ ] document layout/schema extraction
 - [ ] vision-language model integration
-- [ ] multimodal evidence fusion
 
 ## Phase 5 — Production Intelligence Infrastructure
 - [x] storage backend configuration
@@ -36,7 +35,6 @@
 - [x] retrieval compatibility for pre-indexed document pages
 - [x] backend/capability health reporting
 - [x] PostgreSQL connection reuse
-- [ ] production multilingual embeddings
 
 ## Phase 6 — Asynchronous Intelligence Orchestration
 - [x] durable job state
@@ -65,10 +63,26 @@
 - [ ] horizontal autoscaling policy
 - [ ] rate limiting and per-tenant quotas
 
-## Research
-- [ ] Nepali/English benchmark
-- [ ] cross-modal evidence benchmark
-- [ ] calibrated confidence
+## Phase 8 — Multilingual Retrieval & Evidence Intelligence
+- [x] pluggable learned multilingual embedding provider
+- [x] model-aware persistent vector representations
+- [x] deterministic offline fallback
+- [x] retrieval Recall@K, MRR and nDCG evaluation
+- [x] cross-modal evidence fusion
+- [x] confidence temperature calibration primitive
+- [x] evaluation API
+- [ ] Nepali/English benchmark dataset
 - [ ] adversarial retrieval evaluation
-- [ ] causal reasoning
+- [ ] learned reranker
+- [ ] vision-language model integration
+- [ ] multimodal table/layout reasoning
+
+## Phase 9+
+- [ ] distributed tracing/OpenTelemetry
+- [ ] secret manager integration
+- [ ] tenant isolation and rate limiting
+- [ ] lease/visibility-timeout queue semantics
+- [ ] model registry and rollout controls
 - [ ] human feedback learning
+- [ ] causal reasoning
+- [ ] scheduled/batched intelligence pipelines

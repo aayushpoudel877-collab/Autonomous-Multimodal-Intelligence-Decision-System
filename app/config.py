@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel,Field
 load_dotenv()
 class Settings(BaseModel):
     app_name:str=os.getenv("APP_NAME","AegisMind")
@@ -11,8 +11,18 @@ class Settings(BaseModel):
     db_path:str=os.getenv("AEGISMIND_DB_PATH","data/aegismind.db")
     storage_backend:str=os.getenv("AEGISMIND_STORAGE_BACKEND","sqlite").lower()
     postgres_url:str=os.getenv("AEGISMIND_POSTGRES_URL","")
+    object_storage_backend:str=os.getenv("AEGISMIND_OBJECT_STORAGE_BACKEND","local").lower()
     object_storage_dir:str=os.getenv("AEGISMIND_OBJECT_STORAGE_DIR","data/objects")
-    worker_count:int=Field(default=int(os.getenv("AEGISMIND_WORKERS","2")),ge=1,le=16)
+    s3_bucket:str=os.getenv("AEGISMIND_S3_BUCKET","")
+    s3_endpoint_url:str=os.getenv("AEGISMIND_S3_ENDPOINT_URL","")
+    s3_region:str=os.getenv("AWS_REGION","")
+    queue_backend:str=os.getenv("AEGISMIND_QUEUE_BACKEND","local").lower()
+    redis_url:str=os.getenv("AEGISMIND_REDIS_URL","redis://redis:6379/0")
+    redis_queue_name:str=os.getenv("AEGISMIND_REDIS_QUEUE","aegismind:jobs")
+    redis_dead_letter_queue:str=os.getenv("AEGISMIND_REDIS_DLQ","aegismind:jobs:dlq")
+    api_keys:str=os.getenv("AEGISMIND_API_KEYS","")
+    worker_count:int=Field(default=int(os.getenv("AEGISMIND_WORKERS","2")),ge=1,le=32)
+    job_max_attempts:int=Field(default=int(os.getenv("AEGISMIND_JOB_MAX_ATTEMPTS","3")),ge=1,le=10)
     chunk_size:int=Field(default=int(os.getenv("CHUNK_SIZE","900")),ge=100)
     chunk_overlap:int=Field(default=int(os.getenv("CHUNK_OVERLAP","120")),ge=0)
 settings=Settings()

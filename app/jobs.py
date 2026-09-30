@@ -24,11 +24,12 @@ class JobManager:
         return store.db.create_job(str(uuid.uuid4()),job_type,payload,idempotency_key,max_attempts)
     def run_job(self,job_id):
         return self._run(job_id)
+    def run_job(self,job_id):
+        return self._run(job_id)
     def _run(self,job_id):
-        job=store.db.get_job(job_id)
+        job=store.db.claim_job(job_id)
         if not job:return
-        attempts=int(job["attempts"])+1
-        store.db.update_job(job_id,status="running",attempts=attempts,started_at=datetime.now(timezone.utc).isoformat(),error=None)
+        attempts=int(job["attempts"])
         try:
             result=self.handlers[job["type"]](job["payload"])
             store.db.update_job(job_id,status="completed",result=result,finished_at=datetime.now(timezone.utc).isoformat())
@@ -36,10 +37,12 @@ class JobManager:
             log.exception("AegisMind job %s failed",job_id)
             if attempts < int(job["max_attempts"]):
                 store.db.update_job(job_id,status="retrying",error=str(exc))
-                (self.queue.enqueue(job_id) if settings.queue_backend=="redis" else self.executor.submit(self._run,job_id))
+                if settings.queue_backend=="redis": self.queue.enqueue(job_id)
+                else: self.executor.submit(self._run,job_id)
             else:
                 store.db.update_job(job_id,status="failed",error=str(exc),finished_at=datetime.now(timezone.utc).isoformat())
                 if settings.queue_backend=="redis" and hasattr(self.queue,"dead_letter_job"): self.queue.dead_letter_job(job_id)
+
     def _text(self,p):
         return ingest_text(p["title"],p["text"],p.get("metadata"))
     def _file(self,p,kind):
